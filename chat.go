@@ -80,11 +80,6 @@ type ChatMessageImageURL struct {
 }
 
 type ChatMessagePartInputAudio struct {
-	URL string `json:"url,omitempty"`
-	InputAudioDetail
-}
-
-type InputAudioDetail struct {
 	Data   string `json:"data,omitempty"`
 	Format string `json:"format,omitempty"`
 }
