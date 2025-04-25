@@ -98,10 +98,10 @@ const (
 )
 
 type ChatMessagePart struct {
-	Type       ChatMessagePartType  `json:"type,omitempty"`
-	Text       string               `json:"text,omitempty"`
-	ImageURL   *ChatMessageImageURL `json:"image_url,omitempty"`
-	InputAudio *ChatMessagePartInputAudio
+	Type       ChatMessagePartType        `json:"type,omitempty"`
+	Text       string                     `json:"text,omitempty"`
+	ImageURL   *ChatMessageImageURL       `json:"image_url,omitempty"`
+	InputAudio *ChatMessagePartInputAudio `json:"input_audio,omitempty"`
 }
 
 type ChatCompletionMessage struct {
