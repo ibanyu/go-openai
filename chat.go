@@ -14,6 +14,7 @@ const (
 	ChatMessageRoleAssistant = "assistant"
 	ChatMessageRoleFunction  = "function"
 	ChatMessageRoleTool      = "tool"
+	ChatMessageRoleDeveloper = "developer"
 )
 
 const chatCompletionsSuffix = "/chat/completions"
@@ -78,17 +79,29 @@ type ChatMessageImageURL struct {
 	Detail ImageURLDetail `json:"detail,omitempty"`
 }
 
+type ChatMessagePartInputAudio struct {
+	URL    string           `json:"url,omitempty"`
+	Detail InputAudioDetail `json:"detail,omitempty"`
+}
+
+type InputAudioDetail struct {
+	Data   string `json:"data,omitempty"`
+	Format string `json:"format,omitempty"`
+}
+
 type ChatMessagePartType string
 
 const (
-	ChatMessagePartTypeText     ChatMessagePartType = "text"
-	ChatMessagePartTypeImageURL ChatMessagePartType = "image_url"
+	ChatMessagePartTypeText       ChatMessagePartType = "text"
+	ChatMessagePartTypeImageURL   ChatMessagePartType = "image_url"
+	ChatMessagePartTypeInputAudio ChatMessagePartType = "input_audio"
 )
 
 type ChatMessagePart struct {
-	Type     ChatMessagePartType  `json:"type,omitempty"`
-	Text     string               `json:"text,omitempty"`
-	ImageURL *ChatMessageImageURL `json:"image_url,omitempty"`
+	Type       ChatMessagePartType  `json:"type,omitempty"`
+	Text       string               `json:"text,omitempty"`
+	ImageURL   *ChatMessageImageURL `json:"image_url,omitempty"`
+	InputAudio *ChatMessagePartInputAudio
 }
 
 type ChatCompletionMessage struct {
@@ -228,6 +241,7 @@ type ChatCompletionRequest struct {
 	// including visible output tokens and reasoning tokens https://platform.openai.com/docs/guides/reasoning
 	MaxCompletionTokens int                           `json:"max_completion_tokens,omitempty"`
 	Temperature         float32                       `json:"temperature,omitempty"`
+	Modalities          []string                      `json:"modalities,omitempty"`
 	TopP                float32                       `json:"top_p,omitempty"`
 	N                   int                           `json:"n,omitempty"`
 	Stream              bool                          `json:"stream,omitempty"`
@@ -397,7 +411,8 @@ func (c *Client) CreateChatCompletion(
 		return
 	}
 
-	if err = validateRequestForO1Models(request); err != nil {
+	reasoningValidator := NewReasoningValidator()
+	if err = reasoningValidator.Validate(request); err != nil {
 		return
 	}
 
