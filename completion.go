@@ -207,6 +207,7 @@ type CompletionRequest struct {
 	Temperature     float32           `json:"temperature,omitempty"`
 	TopP            float32           `json:"top_p,omitempty"`
 	User            string            `json:"user,omitempty"`
+	RawExtensions
 }
 
 // CompletionChoice represents one of possible completions.
@@ -215,6 +216,30 @@ type CompletionChoice struct {
 	Index        int           `json:"index"`
 	FinishReason string        `json:"finish_reason"`
 	LogProbs     LogprobResult `json:"logprobs"`
+	RawExtensions
+}
+
+func (r *CompletionChoice) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias CompletionChoice
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r CompletionChoice) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias CompletionChoice
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 // LogprobResult represents logprob result of Choice.
@@ -223,6 +248,30 @@ type LogprobResult struct {
 	TokenLogprobs []float32            `json:"token_logprobs"`
 	TopLogprobs   []map[string]float32 `json:"top_logprobs"`
 	TextOffset    []int                `json:"text_offset"`
+	RawExtensions
+}
+
+func (r *LogprobResult) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias LogprobResult
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r LogprobResult) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias LogprobResult
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 // CompletionResponse represents a response structure for completion API.
@@ -233,8 +282,31 @@ type CompletionResponse struct {
 	Model   string             `json:"model"`
 	Choices []CompletionChoice `json:"choices"`
 	Usage   Usage              `json:"usage"`
-
+	RawExtensions
 	httpHeader
+}
+
+func (r *CompletionResponse) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias CompletionResponse
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r CompletionResponse) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias CompletionResponse
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 // CreateCompletion — API call to create a completion. This is the main endpoint of the API. Returns new text as well

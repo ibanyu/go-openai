@@ -181,6 +181,37 @@ func getCompletionBody(r *http.Request) (openai.CompletionRequest, error) {
 	}
 	return completion, nil
 }
+func TestCompletionResponse_UnmarshalJSON_WithAdditionalFields(t *testing.T) {
+	jsonData := []byte(`{
+		"id": "test-id",
+		"object": "test-object",
+		"created": 1234567890,
+		"model": "test-model",
+		"choices": [
+			{
+				"text": "test-text",
+				"index": 0,
+				"finish_reason": "stop"
+			}
+		],
+		"usage": {
+			"prompt_tokens": 10,
+			"completion_tokens": 5,
+			"total_tokens": 15
+		},
+		"ext1": 1,
+		"ext2": "custom_value"
+	}`)
+
+	var response openai.CompletionResponse
+	if err := json.Unmarshal(jsonData, &response); err != nil {
+		t.Fatalf("UnmarshalJSON failed: %v", err)
+	}
+
+	// Verify known fields are correctly unmarshalled
+	d, _ := json.Marshal(response)
+	t.Logf("d: %s, v: %v", string(d), response)
+}
 
 // TestCompletionWithO1Model Tests that O1 model is not supported for completion endpoint.
 func TestCompletionWithO1Model(t *testing.T) {

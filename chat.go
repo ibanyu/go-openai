@@ -97,14 +97,38 @@ type ChatMessagePart struct {
 	Text       string                     `json:"text,omitempty"`
 	ImageURL   *ChatMessageImageURL       `json:"image_url,omitempty"`
 	InputAudio *ChatMessagePartInputAudio `json:"input_audio,omitempty"`
+	RawExtensions
+}
+
+func (p *ChatMessagePart) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatMessagePart
+	aux := (*alias)(p)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &p.RawExtensions)
+}
+
+func (p ChatMessagePart) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatMessagePart
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&p),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, p.Extensions)
 }
 
 type ChatCompletionMessage struct {
-	Role             string `json:"role"`
-	Content          string `json:"content,omitempty"`
-	ReasoningContent string `json:"reasoning_content,omitempty"`
-	Refusal          string `json:"refusal,omitempty"`
-	MultiContent     []ChatMessagePart
+	Role             string            `json:"role"`
+	Content          string            `json:"content,omitempty"`
+	ReasoningContent string            `json:"reasoning_content,omitempty"`
+	Refusal          string            `json:"refusal,omitempty"`
+	MultiContent     []ChatMessagePart `json:"-"` // 永远不序列化MultiContent字段
 
 	// This property isn't in the official documentation, but it's in
 	// the documentation for the official library for python:
@@ -119,74 +143,81 @@ type ChatCompletionMessage struct {
 
 	// For Role=tool prompts this should be set to the ID given in the assistant's prior request to call a tool.
 	ToolCallID string `json:"tool_call_id,omitempty"`
+	RawExtensions
 }
 
 func (m ChatCompletionMessage) MarshalJSON() ([]byte, error) {
-	if m.Content != "" && m.MultiContent != nil {
+	if m.Content != "" && len(m.MultiContent) > 0 {
 		return nil, ErrContentFieldsMisused
 	}
+
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionMessage
+
 	if len(m.MultiContent) > 0 {
-		msg := struct {
-			Role             string            `json:"role"`
-			Content          string            `json:"-"`
-			ReasoningContent string            `json:"reasoning_content,omitempty"`
-			Refusal          string            `json:"refusal,omitempty"`
-			MultiContent     []ChatMessagePart `json:"content,omitempty"`
-			Name             string            `json:"name,omitempty"`
-			FunctionCall     *FunctionCall     `json:"function_call,omitempty"`
-			ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
-			ToolCallID       string            `json:"tool_call_id,omitempty"`
-		}(m)
-		return json.Marshal(msg)
+		// 多内容模式：将MultiContent作为content字段输出
+		temp := &struct {
+			*alias
+			Content       string            `json:"-"`       // 排除单内容字段
+			MultiContent  []ChatMessagePart `json:"content"` // 多内容作为content输出
+			RawExtensions struct{}          `json:"-"`       // 排除RawExtensions字段
+		}{
+			alias:        (*alias)(&m),
+			MultiContent: m.MultiContent,
+		}
+		return MarshalWithExtensions(temp, m.Extensions)
 	}
 
-	msg := struct {
-		Role             string            `json:"role"`
-		Content          string            `json:"content,omitempty"`
-		ReasoningContent string            `json:"reasoning_content,omitempty"`
-		Refusal          string            `json:"refusal,omitempty"`
-		MultiContent     []ChatMessagePart `json:"-"`
-		Name             string            `json:"name,omitempty"`
-		FunctionCall     *FunctionCall     `json:"function_call,omitempty"`
-		ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
-		ToolCallID       string            `json:"tool_call_id,omitempty"`
-	}(m)
-	return json.Marshal(msg)
+	// 单内容模式：使用默认的Content字段，MultiContent已被json:"-"排除
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&m),
+	}
+	return MarshalWithExtensions(temp, m.Extensions)
 }
 
 func (m *ChatCompletionMessage) UnmarshalJSON(bs []byte) error {
-	msg := struct {
-		Role             string `json:"role"`
-		Content          string `json:"content,omitempty"`
-		ReasoningContent string `json:"reasoning_content,omitempty"`
-		Refusal          string `json:"refusal,omitempty"`
-		MultiContent     []ChatMessagePart
-		Name             string        `json:"name,omitempty"`
-		FunctionCall     *FunctionCall `json:"function_call,omitempty"`
-		ToolCalls        []ToolCall    `json:"tool_calls,omitempty"`
-		ToolCallID       string        `json:"tool_call_id,omitempty"`
-	}{}
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionMessage
 
-	if err := json.Unmarshal(bs, &msg); err == nil {
-		*m = ChatCompletionMessage(msg)
-		return nil
-	}
-	multiMsg := struct {
-		Role             string `json:"role"`
-		Content          string
-		ReasoningContent string            `json:"reasoning_content,omitempty"`
-		Refusal          string            `json:"refusal,omitempty"`
-		MultiContent     []ChatMessagePart `json:"content"`
-		Name             string            `json:"name,omitempty"`
-		FunctionCall     *FunctionCall     `json:"function_call,omitempty"`
-		ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
-		ToolCallID       string            `json:"tool_call_id,omitempty"`
-	}{}
-	if err := json.Unmarshal(bs, &multiMsg); err != nil {
+	// 首先检测content字段的类型（string还是array）
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(bs, &raw); err != nil {
 		return err
 	}
-	*m = ChatCompletionMessage(multiMsg)
-	return nil
+
+	// 检查content字段是否存在以及它的类型
+	if contentRaw, exists := raw["content"]; exists && len(contentRaw) > 0 {
+		// 检查是否是数组（以'['开头）
+		if contentRaw[0] == '[' {
+			// 多内容模式
+			temp := &struct {
+				*alias
+				Content       string            `json:"-"`       // 排除单内容字段
+				MultiContent  []ChatMessagePart `json:"content"` // 多内容作为content
+				RawExtensions struct{}          `json:"-"`       // 排除RawExtensions字段
+			}{
+				alias: (*alias)(m),
+			}
+			if err := UnmarshalWithExtensions(bs, temp, &m.RawExtensions); err != nil {
+				return err
+			}
+			m.MultiContent = temp.MultiContent
+			return nil
+		}
+	}
+
+	// 单内容模式（默认）
+	temp := &struct {
+		*alias
+		MultiContent  []ChatMessagePart `json:"-"` // 排除多内容字段
+		RawExtensions struct{}          `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(m),
+	}
+	return UnmarshalWithExtensions(bs, temp, &m.RawExtensions)
 }
 
 type ToolCall struct {
@@ -195,12 +226,60 @@ type ToolCall struct {
 	ID       string       `json:"id,omitempty"`
 	Type     ToolType     `json:"type"`
 	Function FunctionCall `json:"function"`
+	RawExtensions
+}
+
+func (fc *ToolCall) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ToolCall
+	aux := (*alias)(fc)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &fc.RawExtensions)
+}
+
+func (fc ToolCall) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ToolCall
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&fc),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, fc.Extensions)
 }
 
 type FunctionCall struct {
 	Name string `json:"name,omitempty"`
 	// call function with arguments in JSON format
 	Arguments string `json:"arguments,omitempty"`
+	RawExtensions
+}
+
+func (fc *FunctionCall) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias FunctionCall
+	aux := (*alias)(fc)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &fc.RawExtensions)
+}
+
+func (fc FunctionCall) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias FunctionCall
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&fc),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, fc.Extensions)
 }
 
 type ChatCompletionResponseFormatType string
@@ -276,6 +355,30 @@ type ChatCompletionRequest struct {
 	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 	// Metadata to store with the completion.
 	Metadata map[string]string `json:"metadata,omitempty"`
+	RawExtensions
+}
+
+func (r *ChatCompletionRequest) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionRequest
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionRequest) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionRequest
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type StreamOptions struct {
@@ -374,6 +477,30 @@ type ChatCompletionChoice struct {
 	FinishReason         FinishReason         `json:"finish_reason"`
 	LogProbs             *LogProbs            `json:"logprobs,omitempty"`
 	ContentFilterResults ContentFilterResults `json:"content_filter_results,omitempty"`
+	RawExtensions
+}
+
+func (r *ChatCompletionChoice) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionChoice
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionChoice) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionChoice
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 // ChatCompletionResponse represents a response structure for chat completion API.
@@ -387,7 +514,31 @@ type ChatCompletionResponse struct {
 	SystemFingerprint   string                 `json:"system_fingerprint"`
 	PromptFilterResults []PromptFilterResult   `json:"prompt_filter_results,omitempty"`
 
+	RawExtensions
 	httpHeader
+}
+
+func (r *ChatCompletionResponse) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionResponse
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionResponse) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionResponse
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 // CreateChatCompletion — API call to Create a completion for the chat message.

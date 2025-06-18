@@ -12,11 +12,59 @@ type ChatCompletionStreamChoiceDelta struct {
 	FunctionCall     *FunctionCall `json:"function_call,omitempty"`
 	ToolCalls        []ToolCall    `json:"tool_calls,omitempty"`
 	Refusal          string        `json:"refusal,omitempty"`
+	RawExtensions
+}
+
+func (r *ChatCompletionStreamChoiceDelta) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionStreamChoiceDelta
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionStreamChoiceDelta) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionStreamChoiceDelta
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type ChatCompletionStreamChoiceLogprobs struct {
 	Content []ChatCompletionTokenLogprob `json:"content,omitempty"`
 	Refusal []ChatCompletionTokenLogprob `json:"refusal,omitempty"`
+	RawExtensions
+}
+
+func (r *ChatCompletionStreamChoiceLogprobs) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionStreamChoiceLogprobs
+	aux := (*alias)(r)
+
+	// 使用优化的反序列化函数
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionStreamChoiceLogprobs) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionStreamChoiceLogprobs
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+
+	// 使用优化的序列化函数
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type ChatCompletionTokenLogprob struct {
@@ -24,12 +72,52 @@ type ChatCompletionTokenLogprob struct {
 	Bytes       []int64                                `json:"bytes,omitempty"`
 	Logprob     float64                                `json:"logprob,omitempty"`
 	TopLogprobs []ChatCompletionTokenLogprobTopLogprob `json:"top_logprobs"`
+	RawExtensions
+}
+
+func (r *ChatCompletionTokenLogprob) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionTokenLogprob
+	aux := (*alias)(r)
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionTokenLogprob) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionTokenLogprob
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type ChatCompletionTokenLogprobTopLogprob struct {
 	Token   string  `json:"token"`
 	Bytes   []int64 `json:"bytes"`
 	Logprob float64 `json:"logprob"`
+	RawExtensions
+}
+
+func (r *ChatCompletionTokenLogprobTopLogprob) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionTokenLogprobTopLogprob
+	aux := (*alias)(r)
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionTokenLogprobTopLogprob) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionTokenLogprobTopLogprob
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type ChatCompletionStreamChoice struct {
@@ -38,11 +126,51 @@ type ChatCompletionStreamChoice struct {
 	Logprobs             *ChatCompletionStreamChoiceLogprobs `json:"logprobs,omitempty"`
 	FinishReason         FinishReason                        `json:"finish_reason"`
 	ContentFilterResults ContentFilterResults                `json:"content_filter_results,omitempty"`
+	RawExtensions
+}
+
+func (r *ChatCompletionStreamChoice) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionStreamChoice
+	aux := (*alias)(r)
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionStreamChoice) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionStreamChoice
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type PromptFilterResult struct {
 	Index                int                  `json:"index"`
 	ContentFilterResults ContentFilterResults `json:"content_filter_results,omitempty"`
+	RawExtensions
+}
+
+func (r *PromptFilterResult) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias PromptFilterResult
+	aux := (*alias)(r)
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r PromptFilterResult) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias PromptFilterResult
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 type ChatCompletionStreamResponse struct {
@@ -58,6 +186,26 @@ type ChatCompletionStreamResponse struct {
 	// When present, it contains a null value except for the last chunk which contains the token usage statistics
 	// for the entire request.
 	Usage *Usage `json:"usage,omitempty"`
+	RawExtensions
+}
+
+func (r *ChatCompletionStreamResponse) UnmarshalJSON(data []byte) error {
+	// 使用类型别名避免递归调用
+	type alias ChatCompletionStreamResponse
+	aux := (*alias)(r)
+	return UnmarshalWithExtensions(data, aux, &r.RawExtensions)
+}
+
+func (r ChatCompletionStreamResponse) MarshalJSON() ([]byte, error) {
+	// 使用类型别名避免递归调用，同时排除RawExtensions字段
+	type alias ChatCompletionStreamResponse
+	temp := &struct {
+		*alias
+		RawExtensions struct{} `json:"-"` // 排除RawExtensions字段
+	}{
+		alias: (*alias)(&r),
+	}
+	return MarshalWithExtensions(temp, r.Extensions)
 }
 
 // ChatCompletionStream
